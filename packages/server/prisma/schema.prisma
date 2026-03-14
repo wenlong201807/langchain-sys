@@ -1,0 +1,248 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── User-facing Models ───────────────────────────────────────────────────────
+
+enum UserTier {
+  FREE
+  PRO
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+model User {
+  id        String     @id @default(uuid())
+  phone     String     @unique
+  nickname  String?
+  avatar    String?
+  tier      UserTier   @default(FREE)
+  status    UserStatus @default(ACTIVE)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  threads        Thread[]
+  knowledgeBases KnowledgeBase[]
+
+  @@map("users")
+}
+
+model Thread {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String   @default("New Chat")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@index([userId])
+  @@map("threads")
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+model Message {
+  id        String      @id @default(uuid())
+  threadId  String
+  role      MessageRole
+  content   String
+  createdAt DateTime    @default(now())
+
+  thread      Thread       @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  contentFlag ContentFlag?
+
+  @@index([threadId])
+  @@map("messages")
+}
+
+// ─── Knowledge Base Models ────────────────────────────────────────────────────
+
+model KnowledgeBase {
+  id          String   @id @default(uuid())
+  userId      String
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documents Document[]
+
+  @@index([userId])
+  @@map("knowledge_bases")
+}
+
+enum DocumentStatus {
+  PENDING
+  PROCESSING
+  READY
+  FAILED
+}
+
+model Document {
+  id         String         @id @default(uuid())
+  kbId       String
+  name       String
+  fileKey    String
+  status     DocumentStatus @default(PENDING)
+  chunkCount Int            @default(0)
+  createdAt  DateTime       @default(now())
+
+  knowledgeBase KnowledgeBase   @relation(fields: [kbId], references: [id], onDelete: Cascade)
+  chunks        DocumentChunk[]
+
+  @@index([kbId])
+  @@map("documents")
+}
+
+model DocumentChunk {
+  id         String   @id @default(uuid())
+  documentId String
+  content    String
+  embedding  String?
+  metadata   Json?
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@map("document_chunks")
+}
+
+// ─── Admin Models ─────────────────────────────────────────────────────────────
+
+enum AdminStatus {
+  ACTIVE
+  DISABLED
+}
+
+model AdminUser {
+  id           String      @id @default(uuid())
+  username     String      @unique
+  passwordHash String
+  nickname     String?
+  roleId       String?
+  lastLoginAt  DateTime?
+  status       AdminStatus @default(ACTIVE)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  roleAssignments AdminRoleAssignment[]
+  auditLogs       AuditLog[]
+  reviewedFlags   ContentFlag[]
+
+  @@map("admin_users")
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+
+  rolePermissions AdminRolePermission[]
+  adminAssignments AdminRoleAssignment[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String  @id @default(uuid())
+  code        String  @unique
+  name        String
+  description String?
+
+  rolePermissions AdminRolePermission[]
+
+  @@map("permissions")
+}
+
+model AdminRolePermission {
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("admin_role_permissions")
+}
+
+model AdminRoleAssignment {
+  adminId String
+  roleId  String
+
+  admin AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  role  Role      @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([adminId, roleId])
+  @@map("admin_role_assignments")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  adminId    String
+  action     String
+  module     String
+  resource   String?
+  changes    Json?
+  statusCode Int?
+  durationMs Int?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  admin AdminUser @relation(fields: [adminId], references: [id])
+
+  @@index([adminId])
+  @@index([createdAt])
+  @@index([module])
+  @@map("audit_logs")
+}
+
+// ─── System Models ────────────────────────────────────────────────────────────
+
+model SystemConfig {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String
+  description String?
+  updatedAt   DateTime @updatedAt
+
+  @@map("system_configs")
+}
+
+enum ContentFlagStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model ContentFlag {
+  id             String            @id @default(uuid())
+  messageId      String            @unique
+  autoCategory   String?
+  autoConfidence Float?
+  status         ContentFlagStatus @default(PENDING)
+  reviewedBy     String?
+  reviewedAt     DateTime?
+  createdAt      DateTime          @default(now())
+
+  message  Message    @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  reviewer AdminUser? @relation(fields: [reviewedBy], references: [id])
+
+  @@index([status])
+  @@map("content_flags")
+}

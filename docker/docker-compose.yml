@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  thinkagent-db:
+    image: pgvector/pgvector:pg16
+    container_name: thinkagent-db
+    environment:
+      POSTGRES_USER: thinkagent
+      POSTGRES_PASSWORD: thinkagent123
+      POSTGRES_DB: thinkagent
+    ports:
+      - "5433:5432"
+    volumes:
+      - thinkagent_pgdata:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U thinkagent -d thinkagent"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  thinkagent_pgdata: {}

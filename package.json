@@ -1,0 +1,23 @@
+{
+  "name": "thinkagent",
+  "private": true,
+  "scripts": {
+    "dev": "turbo run dev",
+    "dev:server": "turbo run dev --filter=@thinkagent/server",
+    "dev:web": "turbo run dev --filter=@thinkagent/web",
+    "dev:admin": "turbo run dev --filter=@thinkagent/admin",
+    "build": "turbo run build",
+    "build:test": "turbo run build:test",
+    "build:staging": "turbo run build:staging",
+    "build:prod": "turbo run build:prod",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "docker:up": "docker compose -f docker/docker-compose.yml up -d",
+    "docker:down": "docker compose -f docker/docker-compose.yml down",
+    "docker:logs": "docker compose -f docker/docker-compose.yml logs -f"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0"
+  },
+  "packageManager": "pnpm@10.16.0"
+}
